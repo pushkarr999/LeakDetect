@@ -9,6 +9,7 @@ from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg,
                                                NavigationToolbar2Tk)
 
+print("hii")
 # initiallize a Tkinter root object
 root = tk.Tk()
 # getting screen width and height of display
