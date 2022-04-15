@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter.filedialog import askopenfile
+from tkinter.filedialog import askopenfile, asksaveasfilename
 from tkinter import ttk
 import numpy as np
 import pandas as pd
@@ -9,7 +9,6 @@ from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg,
                                                NavigationToolbar2Tk)
 
-print("hii")
 # initiallize a Tkinter root object
 root = tk.Tk()
 # getting screen width and height of display
@@ -124,11 +123,26 @@ def show(lower_frame):
         lower_frame.pack_forget()
 
 
+def save(peak_lbl):
+    filepath = asksaveasfilename(
+        defaultextension=".txt",
+        filetypes=[("Text Files", "*.txt"), ("All Files", "*.*")])
+
+    if not filepath:
+        return
+
+    with open(filepath, 'w') as output_file:
+        text = peak_lbl.get('1.0', "end")
+        output_file.write(text)
+
+
 def detect():
+    # print("Button Pressed")
     global CheckVar1
     lower_frame = tk.Frame(print_frame)
     c1 = tk.Checkbutton(print_frame, text="Show peak information", variable=CheckVar1,
                         command=lambda: show(lower_frame))
+    sav_btn = tk.Button(print_frame, text="Save Peak Information", command=lambda: save(peak_lbl))
     scrollbar1 = tk.Scrollbar(lower_frame)
     scrollbar1.pack(side='right', fill='y')
     peak_lbl = tk.Text(lower_frame, padx=20, font=('arial', 12), yscrollcommand=scrollbar1.set)
@@ -140,13 +154,15 @@ def detect():
     ans_lbl = tk.Text(upper_frame, padx=20, font=('arial', 12), yscrollcommand=scrollbar.set)
     ans_lbl.pack(side='top', fill='x', anchor='nw')
     if threshold_var.get() or len(threshold_txt.get()) == 0:
-        answer, inj_time, exit_time, threso, avgrad, peak_info = Functions.data_leak(data, 0)
+        answer, inj_time, exit_time, threso, avgrad, peak_info = Functions.data_leak(data, 0, var.get(), var2.get())
     else:
-        answer, inj_time, exit_time, threso, avgrad, peak_info = Functions.data_leak(data, int(threshold_txt.get()))
+        answer, inj_time, exit_time, threso, avgrad, peak_info = Functions.data_leak(data, int(threshold_txt.get()),
+                                                                                     var.get(), var2.get())
     ans_lbl.insert('end', answer)
     ans_lbl.configure(state='disabled')
     scrollbar.config(command=ans_lbl.yview)
     upper_frame.pack(side='top', anchor='nw')
+    sav_btn.pack(side='top', anchor='nw')
     c1.pack(side='top', anchor='nw')
 
     peak_lbl.insert('end', peak_info)
@@ -183,27 +199,88 @@ def clear():
 
 # browse button
 browse_text = tk.StringVar()
-browse_btn = tk.Button(root, textvariable=browse_text, command=lambda: open_file(), font="Arial")
-browse_text.set("Browse")
+browse_btn = tk.Button(root, textvariable=browse_text, command=lambda: open_file(), font=("Arial", 13), relief='raised',
+                       borderwidth=2)
+browse_text.set("Open File")
 
 plot_btn = tk.Button(root, text="Plot", command=lambda: plot_all(data))
 frame = tk.Frame(root, height=400)
 # Smoothing Frame
 smoothing_frame = tk.LabelFrame(frame, text="Smoothing", font=("Arial", 15))
+var2 = tk.IntVar()
+check_var2 = tk.IntVar(value=1)
+movavg = tk.Radiobutton(smoothing_frame, text="Moving Averages", padx=20, pady=20, variable=var2, value=1,
+                        state="disabled")
+savgol = tk.Radiobutton(smoothing_frame, text="Savitzky Golay Filter", padx=20, pady=20, variable=var2, value=2,
+                        state="disabled")
+convolve = tk.Radiobutton(smoothing_frame, text="Convolve", padx=20, pady=20, variable=var2, value=3, state="disabled")
+lowess = tk.Radiobutton(smoothing_frame, text="Lowess", padx=20, pady=20, variable=var2, value=4, state="disabled")
+exp = tk.Radiobutton(smoothing_frame, text="Exponentially Weighted Average", padx=20, pady=20, variable=var2, value=5,
+                     state="disabled")
 
-movavg = tk.Checkbutton(smoothing_frame, text="Moving Averages", padx=20, pady=20)
-savgol = tk.Checkbutton(smoothing_frame, text="Savitzky Golay Filter", padx=20, pady=20)
 
-movavg.grid(column=0, row=0)
-savgol.grid(column=0, row=1)
+def smooth(choice):
+    if choice == 1:
+        var2.set(0)
+        savgol.config(state="disabled")
+        movavg.config(state="disabled")
+        convolve.config(state="disabled")
+        lowess.config(state="disabled")
+        exp.config(state="disabled")
+    else:
+        savgol.config(state="normal")
+        movavg.config(state="normal")
+        convolve.config(state="normal")
+        lowess.config(state="normal")
+        exp.config(state="normal")
+
+
+smoothing = tk.Checkbutton(smoothing_frame, text="Use Recommended", variable=check_var2, padx=20, pady=20,
+                           command=lambda: smooth(check_var2.get()))
+
+movavg.grid(column=0, row=0, sticky="nw")
+savgol.grid(column=0, row=1, sticky="nw")
+convolve.grid(column=0, row=2, sticky="nw")
+lowess.grid(column=0, row=3, sticky="nw")
+exp.grid(column=0, row=4, sticky="nw")
+smoothing.grid(column=0, row=5, sticky="nw")
 
 # Peak Detection
+var = tk.IntVar()
+check_var = tk.IntVar(value=1)
 peak_frame = tk.LabelFrame(frame, text="Peak Detection Technique", font=("Arial", 15))
 
-find_peak = tk.Radiobutton(peak_frame, text="find_peaks", padx=20, pady=20)
-cwt = tk.Radiobutton(peak_frame, text="Continous wavelet transform", padx=20, pady=20)
-cwt.grid(column=0, row=0)
-find_peak.grid(column=0, row=1)
+find_peak = tk.Radiobutton(peak_frame, text="Find Peaks Python", padx=20, pady=20, variable=var, value=1,
+                           state="disabled")
+cwt = tk.Radiobutton(peak_frame, text="Continous wavelet transform", padx=20, pady=20, variable=var, value=2,
+                     state="disabled")
+maxima = tk.Radiobutton(peak_frame, text="Local Maxima", padx=20, pady=20, variable=var, value=3, state="disabled")
+tony = tk.Radiobutton(peak_frame, text="Peak to Average Ratio", pady=20, padx=20, variable=var, value=4,
+                      state="disabled")
+
+
+def detection(choice):
+    if choice == 1:
+        var.set(0)
+        find_peak.config(state="disabled")
+        cwt.config(state="disabled")
+        maxima.config(state="disabled")
+        tony.config(state="disabled")
+    else:
+        find_peak.config(state="normal")
+        cwt.config(state="normal")
+        maxima.config(state="normal")
+        tony.config(state="normal")
+
+
+detecting = tk.Checkbutton(peak_frame, text="Use Recommended", variable=check_var, padx=20, pady=20,
+                           command=lambda: detection(check_var.get()))
+
+find_peak.grid(column=0, row=0, sticky="nw")
+cwt.grid(column=0, row=1, sticky="nw")
+maxima.grid(column=0, row=2, sticky="nw")
+tony.grid(column=0, row=3, sticky="nw")
+detecting.grid(column=0, row=5, sticky="nw")
 
 # Answer frame
 
